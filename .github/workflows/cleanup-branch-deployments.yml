@@ -1,0 +1,132 @@
+name: Cleanup branch deployments
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only (no deletions)"
+        required: false
+        default: true
+        type: boolean
+      ttl_days:
+        description: "Delete only if missing branch deployment is older than this many days"
+        required: false
+        default: '7'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-content
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Remove stale branch deployments
+        shell: bash
+        env:
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          INPUT_TTL_DAYS: ${{ github.event.inputs.ttl_days || '7' }}
+        run: |
+          set -euo pipefail
+
+          BRANCH_ROOT="branches"
+          DRY_RUN="${INPUT_DRY_RUN}"
+          TTL_DAYS="${INPUT_TTL_DAYS}"
+          NOW_EPOCH="$(date +%s)"
+
+          sanitize_branch() {
+            local value="$1"
+            value="${value//\//--}"
+            value="$(echo "$value" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
+            echo "$value"
+          }
+
+          declare -A ACTIVE_BRANCH_FOLDERS=()
+          while IFS= read -r ref; do
+            branch="${ref#refs/heads/}"
+            [[ "$branch" == "gh-pages" ]] && continue
+            ACTIVE_BRANCH_FOLDERS["$(sanitize_branch "$branch")"]=1
+          done < <(git ls-remote --heads origin | awk '{print $2}')
+
+          deleted=()
+          kept=()
+          would_delete=()
+
+          if [[ ! -d "$BRANCH_ROOT" ]]; then
+            echo "No branch deployments found at $BRANCH_ROOT/." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          shopt -s nullglob
+          for dir in "$BRANCH_ROOT"/*; do
+            [[ -d "$dir" ]] || continue
+            folder_name="$(basename "$dir")"
+
+            if [[ -n "${ACTIVE_BRANCH_FOLDERS[$folder_name]+x}" ]]; then
+              kept+=("$folder_name (active branch)")
+              continue
+            fi
+
+            last_change_epoch="$(git log -1 --format=%ct -- "$dir" || echo 0)"
+            age_days="$(( (NOW_EPOCH - last_change_epoch) / 86400 ))"
+
+            if (( age_days < TTL_DAYS )); then
+              kept+=("$folder_name (missing branch, age ${age_days}d < ttl ${TTL_DAYS}d)")
+              continue
+            fi
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+              would_delete+=("$folder_name")
+              continue
+            fi
+
+            rm -rf "$dir"
+            deleted+=("$folder_name")
+          done
+
+          if [[ "$DRY_RUN" != "true" ]] && (( ${#deleted[@]} > 0 )); then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "chore(pages): remove stale branch deployments"
+            git push origin gh-pages
+          fi
+
+          {
+            echo "## Branch deployment cleanup"
+            echo "- Dry run: ${DRY_RUN}"
+            echo "- TTL days: ${TTL_DAYS}"
+            echo ""
+            echo "### Deleted"
+            if (( ${#deleted[@]} == 0 )); then
+              echo "- (none)"
+            else
+              for item in "${deleted[@]}"; do echo "- ${item}"; done
+            fi
+            echo ""
+            echo "### Would delete"
+            if (( ${#would_delete[@]} == 0 )); then
+              echo "- (none)"
+            else
+              for item in "${would_delete[@]}"; do echo "- ${item}"; done
+            fi
+            echo ""
+            echo "### Kept"
+            if (( ${#kept[@]} == 0 )); then
+              echo "- (none)"
+            else
+              for item in "${kept[@]}"; do echo "- ${item}"; done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
