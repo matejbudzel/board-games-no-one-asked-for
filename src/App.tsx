@@ -7,15 +7,12 @@ const STORAGE_KEY = 'board-games:selected-game';
 function getInitialGameId(): string {
   const persisted = localStorage.getItem(STORAGE_KEY);
   const fallback = gameRegistry[0]?.id ?? '';
-  return gameRegistry.some((game) => game.id === persisted) ? persisted ?? fallback : fallback;
+  return gameRegistry.some((game) => game.id === persisted) ? (persisted ?? fallback) : fallback;
 }
 
 export function App() {
   const [gameId, setGameId] = useState<string>(() => getInitialGameId());
-  const selectedGame = useMemo(
-    () => gameRegistry.find((game) => game.id === gameId),
-    [gameId]
-  );
+  const selectedGame = useMemo(() => gameRegistry.find((game) => game.id === gameId), [gameId]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, gameId);

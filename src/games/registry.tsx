@@ -6,11 +6,11 @@ export const gameRegistry: GameDefinition[] = [
   {
     id: 'dice-race',
     name: 'Dice Race',
-    render: () => <DiceRaceGame />
+    render: () => <DiceRaceGame />,
   },
   {
     id: 'memo-pairs',
     name: 'Memo Pairs',
-    render: () => <MemoPairsGame />
-  }
+    render: () => <MemoPairsGame />,
+  },
 ];
