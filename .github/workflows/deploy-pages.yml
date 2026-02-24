@@ -1,49 +1,81 @@
-name: Deploy to GitHub Pages
+name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-content
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set deploy target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+
+          sanitize_branch() {
+            local value="$1"
+            value="${value//\//--}"
+            value="$(echo "$value" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
+            echo "$value"
+          }
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            SOURCE_BRANCH="${{ github.event.pull_request.head.ref }}"
+            SAFE_BRANCH="$(sanitize_branch "$SOURCE_BRANCH")"
+            echo "destination_dir=branches/${SAFE_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "base_path=/${REPO_NAME}/branches/${SAFE_BRANCH}/" >> "$GITHUB_OUTPUT"
+            echo "site_url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/branches/${SAFE_BRANCH}/" >> "$GITHUB_OUTPUT"
+          else
+            echo "destination_dir=." >> "$GITHUB_OUTPUT"
+            echo "base_path=/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
+            echo "site_url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Install
+      - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Build
+        env:
+          VITE_BASE_PATH: ${{ steps.target.outputs.base_path }}
         run: bun run build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          destination_dir: ${{ steps.target.outputs.destination_dir }}
+          keep_files: true
+          enable_jekyll: false
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deployment summary
+        run: |
+          {
+            echo "## Pages deployment"
+            echo "- Target directory: `${{ steps.target.outputs.destination_dir }}`"
+            echo "- URL: ${{ steps.target.outputs.site_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
