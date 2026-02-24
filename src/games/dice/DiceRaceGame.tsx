@@ -16,20 +16,25 @@ function createInitialState(): DiceRaceState {
 
 export function DiceRaceGame() {
   const [state, setState] = useState<DiceRaceState>(() => createInitialState());
-  const lastRoundLeader = useMemo(
-    () =>
-      state.scores.reduce(
-        (leader, score, index) => (score > state.scores[leader] ? index : leader),
-        0
-      ),
-    [state.scores]
-  );
+  const lastRoundLeader = useMemo(() => {
+    let leaderIndex = 0;
+    let leaderScore = state.scores[0] ?? 0;
+
+    for (const [index, score] of state.scores.entries()) {
+      if (score > leaderScore) {
+        leaderIndex = index;
+        leaderScore = score;
+      }
+    }
+
+    return leaderIndex;
+  }, [state.scores]);
 
   const rollDice = () => {
     const roll = Math.floor(Math.random() * 6) + 1;
     setState((current) => {
       const scores = [...current.scores];
-      scores[current.activePlayer] += roll;
+      scores[current.activePlayer] = (scores[current.activePlayer] ?? 0) + roll;
       return {
         scores,
         activePlayer: (current.activePlayer + 1) % PLAYER_COUNT

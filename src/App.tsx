@@ -13,7 +13,7 @@ function getInitialGameId(): string {
 export function App() {
   const [gameId, setGameId] = useState<string>(() => getInitialGameId());
   const selectedGame = useMemo(
-    () => gameRegistry.find((game) => game.id === gameId) ?? gameRegistry[0],
+    () => gameRegistry.find((game) => game.id === gameId),
     [gameId]
   );
 
@@ -31,7 +31,7 @@ export function App() {
           options={gameRegistry.map(({ id, name }) => ({ id, name }))}
         />
       </header>
-      {selectedGame.render()}
+      {selectedGame ? selectedGame.render() : <p>No games available.</p>}
     </main>
   );
 }
