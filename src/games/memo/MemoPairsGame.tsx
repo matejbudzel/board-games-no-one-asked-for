@@ -7,7 +7,7 @@ const SYMBOLS = ['🍎', '🦊', '🌙', '⚽'];
 function shuffledDeck(): Card[] {
   const cards = SYMBOLS.flatMap((symbol, index) => [
     { id: index * 2, symbol, matched: false },
-    { id: index * 2 + 1, symbol, matched: false }
+    { id: index * 2 + 1, symbol, matched: false },
   ]);
 
   return cards.sort(() => Math.random() - 0.5);
@@ -53,12 +53,7 @@ export function MemoPairsGame() {
         {deck.map((card) => {
           const open = card.matched || openedIds.includes(card.id);
           return (
-            <button
-              key={card.id}
-              className="memo-tile"
-              onClick={() => reveal(card)}
-              type="button"
-            >
+            <button key={card.id} className="memo-tile" onClick={() => reveal(card)} type="button">
               {open ? card.symbol : '?'}
             </button>
           );

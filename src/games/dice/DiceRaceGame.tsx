@@ -10,7 +10,7 @@ const PLAYER_COUNT = 3;
 function createInitialState(): DiceRaceState {
   return {
     activePlayer: 0,
-    scores: Array.from({ length: PLAYER_COUNT }, () => 0)
+    scores: Array.from({ length: PLAYER_COUNT }, () => 0),
   };
 }
 
@@ -37,7 +37,7 @@ export function DiceRaceGame() {
       scores[current.activePlayer] = (scores[current.activePlayer] ?? 0) + roll;
       return {
         scores,
-        activePlayer: (current.activePlayer + 1) % PLAYER_COUNT
+        activePlayer: (current.activePlayer + 1) % PLAYER_COUNT,
       };
     });
   };

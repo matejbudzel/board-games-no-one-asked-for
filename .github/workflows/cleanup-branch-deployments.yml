@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Preview only (no deletions)"
+        description: 'Preview only (no deletions)'
         required: false
         default: true
         type: boolean
       ttl_days:
-        description: "Delete only if missing branch deployment is older than this many days"
+        description: 'Delete only if missing branch deployment is older than this many days'
         required: false
         default: '7'
         type: string
