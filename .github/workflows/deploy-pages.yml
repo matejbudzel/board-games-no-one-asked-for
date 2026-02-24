@@ -9,48 +9,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
   pull-requests: write
 
 concurrency:
-  group: pages-content
+  group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     outputs:
-      site_url: ${{ steps.target.outputs.site_url }}
+      site_url: ${{ steps.site.outputs.site_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set deploy target
-        id: target
+      - name: Set site URL and base path
+        id: site
         shell: bash
         run: |
           set -euo pipefail
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
-
-          sanitize_branch() {
-            local value="$1"
-            value="${value//\//--}"
-            value="$(echo "$value" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
-            echo "$value"
-          }
-
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            SOURCE_BRANCH="${{ github.event.pull_request.head.ref }}"
-            SAFE_BRANCH="$(sanitize_branch "$SOURCE_BRANCH")"
-            echo "destination_dir=branches/${SAFE_BRANCH}" >> "$GITHUB_OUTPUT"
-            echo "base_path=/${REPO_NAME}/branches/${SAFE_BRANCH}/" >> "$GITHUB_OUTPUT"
-            echo "site_url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/branches/${SAFE_BRANCH}/" >> "$GITHUB_OUTPUT"
-          else
-            echo "destination_dir=." >> "$GITHUB_OUTPUT"
-            echo "base_path=/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
-            echo "site_url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
-          fi
+          echo "site_url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
+          echo "VITE_BASE_PATH=/${REPO_NAME}/" >> "$GITHUB_ENV"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -61,56 +46,55 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build
-        env:
-          VITE_BASE_PATH: ${{ steps.target.outputs.base_path }}
         run: bun run build
 
-      - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./dist
-          destination_dir: ${{ steps.target.outputs.destination_dir }}
-          keep_files: true
-          enable_jekyll: false
+          path: ./dist
 
-      - name: Deployment summary
-        run: |
-          {
-            echo "## Pages deployment"
-            echo "- Target directory: `${{ steps.target.outputs.destination_dir }}`"
-            echo "- URL: ${{ steps.target.outputs.site_url }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   pr-deployment-comment:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: build
     steps:
       - name: Upsert deployment status comment
         uses: actions/github-script@v7
         env:
-          SITE_URL: ${{ needs.deploy.outputs.site_url }}
-          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          SITE_URL: ${{ needs.build.outputs.site_url }}
+          BUILD_RESULT: ${{ needs.build.result }}
         with:
           script: |
             const marker = '<!-- pages-deployment-status -->';
             const statusMap = {
-              success: '✅ ok',
-              failure: '❌ not ok',
-              cancelled: '❌ not ok',
-              skipped: '❌ not ok',
+              success: '✅ build ok',
+              failure: '❌ build not ok',
+              cancelled: '❌ build not ok',
+              skipped: '❌ build not ok',
             };
-            const result = process.env.DEPLOY_RESULT || 'failure';
-            const statusText = statusMap[result] || '❌ not ok';
+            const result = process.env.BUILD_RESULT || 'failure';
+            const statusText = statusMap[result] || '❌ build not ok';
             const siteUrl = process.env.SITE_URL || '_unavailable_';
 
             const body = [
               marker,
-              '## Deployment',
-              `- URL: ${siteUrl}`,
-              `- Last deployment status: ${statusText}`,
+              '## Pages workflow status',
+              `- Main site URL: ${siteUrl}`,
+              `- PR build status: ${statusText}`,
+              '- Note: Preview URLs for branch folders are disabled with the GitHub Pages Actions deployment flow.',
             ].join('\n');
 
             const { owner, repo } = context.repo;
