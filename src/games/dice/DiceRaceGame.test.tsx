@@ -68,6 +68,28 @@ describe('DiceRaceGame', () => {
     expect(screen.getByText('Player 1: score 2, momentum 2')).toBeInTheDocument();
   });
 
+  it('supports higher momentum effects and longer race length values', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    render(<DiceRaceGame />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: /goal type/i }), {
+      target: { value: 'length' },
+    });
+
+    expect(screen.getByRole('option', { name: '100' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: /face 4 momentum effect/i }), {
+      target: { value: '3' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start race/i }));
+    fireEvent.click(screen.getByRole('button', { name: /roll d6/i }));
+
+    expect(screen.getByText(/last move:/i)).toHaveTextContent('Last move: 4');
+    expect(screen.getByText('Player 1: score 4, momentum 4')).toBeInTheDocument();
+  });
+
   it('runs simulations and shows global stats', () => {
     const randomSpy = vi.spyOn(Math, 'random');
     randomSpy.mockReturnValueOnce(0.9).mockReturnValueOnce(0).mockReturnValue(0.9);
