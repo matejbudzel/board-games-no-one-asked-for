@@ -18,6 +18,8 @@ export type RaceState = {
   momentum: number[];
   scores: number[];
   setup: SetupState;
+  shootoutPlayers: number[] | null;
+  shootoutTurnsPlayed: number;
   winner: number | null;
 };
 
@@ -60,6 +62,8 @@ export function createInitialState(setup: SetupState): RaceState {
     momentum: Array.from({ length: setup.players }, () => INITIAL_MOMENTUM),
     scores: Array.from({ length: setup.players }, () => 0),
     setup,
+    shootoutPlayers: null,
+    shootoutTurnsPlayed: 0,
     winner: null,
   };
 }
@@ -83,32 +87,78 @@ export function resolveTurn(current: RaceState, roll: number): RaceState {
   momentum[activePlayer] = nextMomentum;
   scores[activePlayer] = (scores[activePlayer] ?? 0) + nextMomentum;
 
-  const nextActivePlayer = (activePlayer + 1) % current.setup.players;
-  const roundFinished = nextActivePlayer === 0;
+  const turnPlayers =
+    current.shootoutPlayers ?? Array.from({ length: current.setup.players }, (_, index) => index);
+  const activePlayerIndex = turnPlayers.indexOf(activePlayer);
+  const nextPlayerIndex = (activePlayerIndex + 1) % turnPlayers.length;
+  const nextActivePlayer = turnPlayers[nextPlayerIndex] ?? 0;
+  const nextShootoutTurnsPlayed = current.shootoutTurnsPlayed + 1;
+  const roundFinished = nextShootoutTurnsPlayed >= turnPlayers.length;
   const completedRounds = current.completedRounds + (roundFinished ? 1 : 0);
+
   const reachedLength = scores.some((score) => score >= current.setup.goalValue);
   const finishTriggered =
     current.setup.goal === 'length' ? current.finishTriggered || reachedLength : true;
 
-  const shouldCheckWinner =
+  const reachedLimit =
     roundFinished &&
     ((current.setup.goal === 'rounds' && completedRounds >= current.setup.goalValue) ||
       (current.setup.goal === 'length' && finishTriggered));
 
-  const leaders = shouldCheckWinner ? getLeaders(scores) : [];
-  const winner = leaders.length === 1 ? leaders[0]! : null;
+  if (current.shootoutPlayers === null && reachedLimit) {
+    const leaders = getLeaders(scores);
+    const winner = leaders.length === 1 ? leaders[0]! : null;
+
+    return {
+      ...current,
+      activePlayer: winner === null ? leaders[0]! : nextActivePlayer,
+      completedRounds,
+      finishTriggered,
+      inProgress: winner === null,
+      lastMove: nextMomentum,
+      lastRoll: roll,
+      momentum,
+      scores,
+      shootoutPlayers: winner === null ? leaders : null,
+      shootoutTurnsPlayed: 0,
+      winner,
+    };
+  }
+
+  if (current.shootoutPlayers !== null && roundFinished) {
+    const topScore = Math.max(...current.shootoutPlayers.map((player) => scores[player] ?? 0));
+    const survivors = current.shootoutPlayers.filter(
+      (player) => (scores[player] ?? 0) === topScore
+    );
+    const winner = survivors.length === 1 ? survivors[0]! : null;
+
+    return {
+      ...current,
+      activePlayer: winner === null ? survivors[0]! : nextActivePlayer,
+      completedRounds,
+      finishTriggered,
+      inProgress: winner === null,
+      lastMove: nextMomentum,
+      lastRoll: roll,
+      momentum,
+      scores,
+      shootoutPlayers: winner === null ? survivors : null,
+      shootoutTurnsPlayed: 0,
+      winner,
+    };
+  }
 
   return {
     ...current,
     activePlayer: nextActivePlayer,
     completedRounds,
     finishTriggered,
-    inProgress: winner === null,
+    inProgress: true,
     lastMove: nextMomentum,
     lastRoll: roll,
     momentum,
     scores,
-    winner,
+    shootoutTurnsPlayed: roundFinished ? 0 : nextShootoutTurnsPlayed,
   };
 }
 
