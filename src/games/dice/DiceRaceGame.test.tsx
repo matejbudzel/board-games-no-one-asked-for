@@ -67,4 +67,27 @@ describe('DiceRaceGame', () => {
     expect(screen.getByText(/last move:/i)).toHaveTextContent('Last move: 2');
     expect(screen.getByText('Player 1: score 2, momentum 2')).toBeInTheDocument();
   });
+
+  it('runs simulations and shows global stats', () => {
+    const randomSpy = vi.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0.9).mockReturnValueOnce(0).mockReturnValue(0.9);
+
+    render(<DiceRaceGame />);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: /number of simulations/i }), {
+      target: { value: '1' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: /players/i }), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: /goal value/i }), {
+      target: { value: '1' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /run simulations/i }));
+
+    expect(screen.getByText('Global stats')).toBeInTheDocument();
+    expect(screen.getByText(/Player 1 wins: 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Game 1/i)).toBeInTheDocument();
+  });
 });
