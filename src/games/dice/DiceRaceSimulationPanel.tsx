@@ -45,28 +45,31 @@ export function DiceRaceSimulationPanel({ setup }: DiceRaceSimulationPanelProps)
     return { averageRounds, averageTurns, closeRate, winCounts };
   }, [results, setup.players]);
 
-  const runSimulations = () => {
-    const count = readSimulationCount(simulationCount);
-    const nextResults = Array.from({ length: count }, () => simulateGame(setup));
-    setResults(nextResults);
-  };
-
   return (
     <section className="card" aria-label="Dice race simulation">
       <h3>Simulation Lab</h3>
-      <p>Run many games with the current setup and inspect turn logs.</p>
+      <p>
+        Sim players use card heuristics: burst on 6, save deep-breath for high momentum, auto-block
+        bad rolls with second chance/hail mary, and usually stumble the current leader.
+      </p>
       <p>
         Number of games:
         <input
           aria-label="Number of simulations"
-          min={1}
           max={200}
+          min={1}
           onChange={(event) => setSimulationCount(event.target.value)}
           type="number"
           value={simulationCount}
         />
       </p>
-      <button onClick={runSimulations} type="button">
+      <button
+        onClick={() => {
+          const count = readSimulationCount(simulationCount);
+          setResults(Array.from({ length: count }, () => simulateGame(setup)));
+        }}
+        type="button"
+      >
         Run simulations
       </button>
 
@@ -102,8 +105,8 @@ export function DiceRaceSimulationPanel({ setup }: DiceRaceSimulationPanelProps)
                   {result.turns.map((turn) => (
                     <li key={turn.turn}>
                       T{turn.turn}: P{turn.player + 1} rolled {turn.roll}, momentum{' '}
-                      {turn.momentumBefore}→{turn.momentumAfter}, moved {turn.move}, scores{' '}
-                      {turn.scoresAfterTurn.join('/')}
+                      {turn.momentumBefore}→{turn.momentumAfter}, moved {turn.move}, card{' '}
+                      {turn.cardPlayed ?? '—'}, scores {turn.scoresAfterTurn.join('/')}
                     </li>
                   ))}
                 </ul>

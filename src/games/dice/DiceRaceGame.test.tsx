@@ -8,6 +8,9 @@ describe('DiceRaceGame', () => {
 
     render(<DiceRaceGame />);
 
+    fireEvent.change(screen.getByRole('combobox', { name: /copies per card/i }), {
+      target: { value: '0' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /start race/i }));
 
     expect(screen.getByText(/last roll:/i)).toHaveTextContent('Last roll: —');
@@ -17,7 +20,8 @@ describe('DiceRaceGame', () => {
 
     expect(screen.getByText(/last roll:/i)).toHaveTextContent('Last roll: 4');
     expect(screen.getByText(/last move:/i)).toHaveTextContent('Last move: 1');
-    expect(screen.getByText('Player 1: score 1, momentum 1')).toBeInTheDocument();
+    expect(screen.getByText(/last card:/i)).toHaveTextContent('Last card: —');
+    expect(screen.getByText(/Player 1: score 1, momentum 1/)).toBeInTheDocument();
   });
 
   it('waits for a full round before declaring a winner on race length goal', () => {
@@ -30,6 +34,9 @@ describe('DiceRaceGame', () => {
 
     render(<DiceRaceGame />);
 
+    fireEvent.change(screen.getByRole('combobox', { name: /copies per card/i }), {
+      target: { value: '0' },
+    });
     fireEvent.change(screen.getByRole('combobox', { name: /players/i }), {
       target: { value: '2' },
     });
@@ -57,6 +64,9 @@ describe('DiceRaceGame', () => {
 
     render(<DiceRaceGame />);
 
+    fireEvent.change(screen.getByRole('combobox', { name: /copies per card/i }), {
+      target: { value: '0' },
+    });
     fireEvent.change(screen.getByRole('combobox', { name: /face 4 momentum effect/i }), {
       target: { value: '1' },
     });
@@ -65,7 +75,7 @@ describe('DiceRaceGame', () => {
     fireEvent.click(screen.getByRole('button', { name: /roll d6/i }));
 
     expect(screen.getByText(/last move:/i)).toHaveTextContent('Last move: 2');
-    expect(screen.getByText('Player 1: score 2, momentum 2')).toBeInTheDocument();
+    expect(screen.getByText(/Player 1: score 2, momentum 2/)).toBeInTheDocument();
   });
 
   it('supports higher momentum effects and longer race length values', () => {
@@ -73,6 +83,9 @@ describe('DiceRaceGame', () => {
 
     render(<DiceRaceGame />);
 
+    fireEvent.change(screen.getByRole('combobox', { name: /copies per card/i }), {
+      target: { value: '0' },
+    });
     fireEvent.change(screen.getByRole('combobox', { name: /goal type/i }), {
       target: { value: 'length' },
     });
@@ -87,7 +100,7 @@ describe('DiceRaceGame', () => {
     fireEvent.click(screen.getByRole('button', { name: /roll d6/i }));
 
     expect(screen.getByText(/last move:/i)).toHaveTextContent('Last move: 4');
-    expect(screen.getByText('Player 1: score 4, momentum 4')).toBeInTheDocument();
+    expect(screen.getByText(/Player 1: score 4, momentum 4/)).toBeInTheDocument();
   });
 
   it('runs simulations and shows global stats', () => {
@@ -96,6 +109,9 @@ describe('DiceRaceGame', () => {
 
     render(<DiceRaceGame />);
 
+    fireEvent.change(screen.getByRole('combobox', { name: /copies per card/i }), {
+      target: { value: '0' },
+    });
     fireEvent.change(screen.getByRole('spinbutton', { name: /number of simulations/i }), {
       target: { value: '1' },
     });
