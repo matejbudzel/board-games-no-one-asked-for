@@ -14,8 +14,11 @@ import {
 } from './diceRaceEngine';
 
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6];
-const GOAL_OPTIONS = Array.from({ length: 30 }, (_, index) => index + 1);
-const MOMENTUM_OPTIONS: MomentumEffect[] = [-1, 0, 1];
+const GOAL_OPTIONS: Record<RaceGoal, number[]> = {
+  length: Array.from({ length: 100 }, (_, index) => index + 1),
+  rounds: Array.from({ length: 30 }, (_, index) => index + 1),
+};
+const MOMENTUM_OPTIONS: MomentumEffect[] = [-1, 0, 1, 2, 3];
 
 export function DiceRaceGame() {
   const [state, setState] = useState<RaceState>(() =>
@@ -87,7 +90,7 @@ export function DiceRaceGame() {
             }
             value={state.setup.goalValue}
           >
-            {GOAL_OPTIONS.map((value) => (
+            {GOAL_OPTIONS[state.setup.goal].map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>

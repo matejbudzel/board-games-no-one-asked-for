@@ -1,5 +1,5 @@
 export type RaceGoal = 'rounds' | 'length';
-export type MomentumEffect = -1 | 0 | 1;
+export type MomentumEffect = -1 | 0 | 1 | 2 | 3;
 
 export type SetupState = {
   goal: RaceGoal;
