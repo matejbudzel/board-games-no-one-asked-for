@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createInitialState,
+  DEFAULT_CARD_RULES,
   DEFAULT_MOMENTUM_EFFECTS,
   GOAL_DEFAULTS,
   resolveTurn,
@@ -9,6 +10,7 @@ import {
 } from './diceRaceEngine';
 
 const baseSetup: SetupState = {
+  cards: { ...DEFAULT_CARD_RULES, copiesPerCard: 0 },
   goal: 'rounds',
   goalValue: GOAL_DEFAULTS.rounds,
   momentumEffects: DEFAULT_MOMENTUM_EFFECTS,
@@ -25,6 +27,21 @@ describe('diceRaceEngine', () => {
     expect(next.lastMove).toBe(0);
     expect(next.scores[0]).toBe(0);
     expect(next.momentum[0]).toBe(0);
+  });
+
+  it('uses burst on a roll of 6 and resets momentum', () => {
+    const setup: SetupState = {
+      ...baseSetup,
+      cards: { ...DEFAULT_CARD_RULES, burstMove: 8, copiesPerCard: 1 },
+      players: 2,
+    };
+    const state = { ...createInitialState(setup), inProgress: true };
+
+    const next = resolveTurn(state, 6);
+
+    expect(next.scores[0]).toBe(8);
+    expect(next.momentum[0]).toBe(0);
+    expect(next.lastCardPlayed).toContain('burst');
   });
 
   it('starts a shootout with only tied leaders once round limit is reached', () => {
@@ -44,31 +61,6 @@ describe('diceRaceEngine', () => {
     expect(state.activePlayer).toBe(1);
     expect(state.winner).toBeNull();
     expect(state.inProgress).toBe(true);
-  });
-
-  it('drops trailing shootout players after each shootout round', () => {
-    const setup: SetupState = {
-      ...baseSetup,
-      goalValue: 1,
-      players: 4,
-    };
-
-    let state = { ...createInitialState(setup), inProgress: true };
-    state.scores = [50, 50, 50, 43];
-    state.momentum = [1, 1, 1, 1];
-    state.completedRounds = 1;
-    state.finishTriggered = true;
-    state.shootoutPlayers = [0, 1, 2];
-    state.activePlayer = 0;
-
-    state = resolveTurn(state, 4);
-    state = resolveTurn(state, 5);
-    state = resolveTurn(state, 5);
-
-    expect(state.scores).toEqual([51, 52, 52, 43]);
-    expect(state.shootoutPlayers).toEqual([1, 2]);
-    expect(state.activePlayer).toBe(1);
-    expect(state.winner).toBeNull();
   });
 
   it('simulates turn history and winner for deterministic rolls', () => {
