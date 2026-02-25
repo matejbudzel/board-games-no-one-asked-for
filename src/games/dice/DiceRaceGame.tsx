@@ -159,6 +159,9 @@ export function DiceRaceGame() {
           Last move: <strong>{state.lastMove ?? '—'}</strong>
         </p>
         <p>Leader: {leaderText}</p>
+        {state.shootoutPlayers ? (
+          <p>Shootout: Players {state.shootoutPlayers.map((player) => player + 1).join(', ')}</p>
+        ) : null}
         {state.winner !== null ? <p>Winner: Player {state.winner + 1}</p> : null}
       </section>
       <DiceRaceSimulationPanel setup={state.setup} />
